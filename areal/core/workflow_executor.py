@@ -432,6 +432,9 @@ class WorkflowExecutor:
 
                     # Filter out None (rejected rollouts) and enqueue accepted
                     for result in results:
+                        if hasattr(self, '_count_rejected') and self._count_rejected:
+                            self._pending_results.append(result)
+                            continue
                         if result.data is not None:
                             self._pending_results.append(result)
 
@@ -932,6 +935,7 @@ class WorkflowExecutor:
                 workflow=workflow,
                 workflow_kwargs=workflow_kwargs,
             )
+            self._count_rejected = workflow_kwargs.pop('count_rejected', False)
         return self.wait(count=len(data))
 
     @trace_perf("workflow_executor.prepare_batch", category="scheduler")
