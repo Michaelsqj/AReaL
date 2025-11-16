@@ -190,6 +190,59 @@ class AReaLOpenAICompatibleModel(BaseModelBackend):
 
         return result
 
+    @observe()
+    async def arun(
+        self,
+        messages: list[OpenAIMessage],
+        response_format: type[BaseModel] | None = None,
+        tools: list[dict[str, Any]] | None = None,
+    ) -> (
+        ChatCompletion
+        | AsyncStream[ChatCompletionChunk]
+        | AsyncChatCompletionStreamManager[BaseModel]
+    ):
+        r"""Runs the query to the backend model asynchronously.
+
+        Args:
+            messages (List[OpenAIMessage]): Message list with the chat history
+                in OpenAI API format.
+            response_format (Optional[Type[BaseModel]]): The response format
+                to use for the model. (default: :obj:`None`)
+            tools (Optional[List[Tool]]): The schema of tools to use for the
+                model for this request. Will override the tools specified in
+                the model configuration (but not change the configuration).
+                (default: :obj:`None`)
+
+        Returns:
+            Union[ChatCompletion, AsyncStream[ChatCompletionChunk], Any]:
+                `ChatCompletion` in the non-stream mode,
+                `AsyncStream[ChatCompletionChunk]` in the stream mode, or
+                `AsyncChatCompletionStreamManager[BaseModel]` in the structured
+                stream mode.
+        """
+        messages = self.preprocess_messages(messages)
+        # Log the request if logging is enabled
+        log_path = self._log_request(messages)
+
+        if tools is None:
+            tools = self.model_config_dict.get("tools", None)
+        elif not tools:
+            tools = None
+
+        logger.info("Running model: %s", self.model_type)
+        logger.info("Messages: %s", messages)
+        logger.info("Response format: %s", response_format)
+        logger.info("Tools: %s", tools)
+
+        result = await self._arun(messages, response_format, tools)
+        logger.info("Result: %s", result)
+
+        # Log the response if logging is enabled
+        if log_path:
+            self._log_response(log_path, result)
+
+        return result
+
     @property
     def token_counter(self) -> BaseTokenCounter:
         r"""Initialize the token counter for the model backend.
