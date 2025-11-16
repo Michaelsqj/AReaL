@@ -559,7 +559,7 @@ class WorkflowExecutor:
                 f"accepted: {stat.accepted}."
             )
 
-    def wait(self, count: int, timeout: float | None = None) -> dict[str, Any]:
+    def wait(self, count: int, timeout: float | None = None, count_rejected=False) -> dict[str, Any]:
         """Wait for workflow results.
 
         See :meth:`~areal.api.engine_api.InferenceEngine.wait` for detailed
@@ -572,6 +572,7 @@ class WorkflowExecutor:
         # (non-None) results. Use short timeout (1 second) for each wait call
         # to allow periodic checking. This matches original behavior where
         # wait() would poll and allow prepare_batch() to continue
+        count_received = 0
         while True:
             # Submit pending inputs
             # Check capacity before submitting
@@ -583,6 +584,9 @@ class WorkflowExecutor:
                 self._commit_one_to_runner()
 
             if len(self._pending_results) >= count:
+                break
+
+            if count_rejected and (count_received >= count):
                 break
 
             elapsed = time.perf_counter() - start_time
@@ -597,6 +601,8 @@ class WorkflowExecutor:
             # Try to get at least the number we still need, but request at least 1
             # Note: runner.wait() might return fewer due to rejections (None results)
             needed = max(1, count - len(self._pending_results))
+            if count_rejected:
+                needed = max(1, count - count_received)
 
             try:
                 # Use short timeout to allow periodic returns (matches original
@@ -608,6 +614,7 @@ class WorkflowExecutor:
                 # Filter out None results (rejected trajectories)
                 # runner.wait() returns List[T] where T can be None for
                 # rejected rollouts
+                count_received += len(batch)
                 accepted = [result for result in batch if result is not None]
                 self._pending_results.extend(accepted)
             except TimeoutError:
@@ -646,6 +653,7 @@ class WorkflowExecutor:
         workflow: RolloutWorkflow | None = None,
         workflow_builder: Callable | None = None,
         should_accept: Callable | None = None,
+        count_rejected = True,
     ) -> dict[str, Any]:
         """Submit a batch of requests and wait for results.
 
@@ -664,7 +672,7 @@ class WorkflowExecutor:
                 workflow_builder=workflow_builder,
                 should_accept=should_accept,
             )
-        return self.wait(count=len(data))
+        return self.wait(count=len(data), count_rejected=count_rejected)
 
     def prepare_batch(
         self,
