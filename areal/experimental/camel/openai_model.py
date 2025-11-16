@@ -193,14 +193,14 @@ class AReaLOpenAICompatibleModel(BaseModelBackend):
     @observe()
     async def arun(
         self,
-        messages: List[OpenAIMessage],
-        response_format: Optional[Type[BaseModel]] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
-    ) -> Union[
-        ChatCompletion,
-        AsyncStream[ChatCompletionChunk],
-        AsyncChatCompletionStreamManager[BaseModel],
-    ]:
+        messages: list[OpenAIMessage],
+        response_format: type[BaseModel] | None = None,
+        tools: list[dict[str, Any]] | None = None,
+    ) -> (
+        ChatCompletion
+        | AsyncStream[ChatCompletionChunk]
+        | AsyncChatCompletionStreamManager[BaseModel]
+    ):
         r"""Runs the query to the backend model asynchronously.
 
         Args:
